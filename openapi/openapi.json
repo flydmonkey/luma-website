@@ -1,0 +1,1038 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Luma",
+    "version": "1.0.2",
+    "description": "Local LAN control API. Every JSON body and success/error payload is `{ ok, data, error }` (camelCase). Send `X-Record-Key` or `Authorization: Bearer` when an access key is stored. Default host is `http://127.0.0.1:18765`."
+  },
+  "servers": [
+    { "url": "/", "description": "This LAN host" },
+    { "url": "http://127.0.0.1:18765", "description": "Default loopback" }
+  ],
+  "security": [
+    { "accessKey": [] },
+    { "bearer": [] },
+    {}
+  ],
+  "tags": [
+    { "name": "Meta" },
+    { "name": "Session" },
+    { "name": "Targets" },
+    { "name": "Settings" },
+    { "name": "Library" },
+    { "name": "Jobs" }
+  ],
+  "components": {
+    "securitySchemes": {
+      "accessKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Record-Key",
+        "description": "Required when an access key is stored. Cookie unlock also works."
+      },
+      "bearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Same value as X-Record-Key."
+      }
+    },
+    "parameters": {
+      "LibraryId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "Finished file name from GET /library (`id`), e.g. `clip.mp4`.",
+        "schema": { "type": "string" },
+        "example": "clip.mp4"
+      },
+      "JobId": {
+        "name": "jobId",
+        "in": "path",
+        "required": true,
+        "description": "12-character id from a compress/trim/repair response.",
+        "schema": { "type": "string" },
+        "example": "a1b2c3d4e5f6"
+      },
+      "ConfirmDelete": {
+        "name": "confirm",
+        "in": "query",
+        "required": true,
+        "description": "Must be `true`. Any other value returns 400.",
+        "schema": { "type": "boolean", "enum": [true] },
+        "example": true
+      }
+    },
+    "schemas": {
+      "Envelope": {
+        "type": "object",
+        "required": ["ok", "data", "error"],
+        "properties": {
+          "ok": { "type": "boolean", "description": "true on success." },
+          "data": { "nullable": true, "description": "Payload on success; null on failure." },
+          "error": { "type": "string", "nullable": true, "description": "Human-readable error; null on success." }
+        }
+      },
+      "EnvelopeEmpty": {
+        "type": "object",
+        "required": ["ok", "data", "error"],
+        "properties": {
+          "ok": { "type": "boolean", "example": true },
+          "data": { "nullable": true, "example": null },
+          "error": { "type": "string", "nullable": true, "example": null }
+        },
+        "example": { "ok": true, "data": null, "error": null }
+      },
+      "EnvelopeError": {
+        "type": "object",
+        "required": ["ok", "data", "error"],
+        "properties": {
+          "ok": { "type": "boolean", "example": false },
+          "data": { "nullable": true, "example": null },
+          "error": { "type": "string", "example": "未找到这个文件。" }
+        },
+        "example": { "ok": false, "data": null, "error": "未找到这个文件。" }
+      },
+      "ProbeData": {
+        "type": "object",
+        "required": ["name", "control"],
+        "properties": {
+          "name": { "type": "string", "example": "record" },
+          "control": { "type": "boolean", "example": true }
+        }
+      },
+      "Region": {
+        "type": "object",
+        "required": ["x", "y", "width", "height"],
+        "properties": {
+          "x": { "type": "integer", "example": 0 },
+          "y": { "type": "integer", "example": 0 },
+          "width": { "type": "integer", "minimum": 2, "example": 800 },
+          "height": { "type": "integer", "minimum": 2, "example": 600 }
+        }
+      },
+      "TargetPut": {
+        "type": "object",
+        "required": ["mode"],
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": ["fullscreen", "region", "window", "game", "audio"],
+            "description": "`audio` is audio-only (fullscreen source). `window` and `game` need `windowId`. `region` needs `region` with width/height > 1."
+          },
+          "displayId": {
+            "type": "string",
+            "description": "Monitor index as a string, from GET /targets/displays `id`.",
+            "example": "0"
+          },
+          "windowId": {
+            "type": "string",
+            "description": "Window handle from GET /targets/windows or /targets/games `id`.",
+            "example": "123456"
+          },
+          "windowTitle": {
+            "type": "string",
+            "description": "Optional title kept with the target for display.",
+            "example": "Notes"
+          },
+          "region": { "$ref": "#/components/schemas/Region" }
+        },
+        "example": { "mode": "window", "windowId": "123456" }
+      },
+      "TargetSummary": {
+        "type": "object",
+        "properties": {
+          "mode": { "type": "string", "enum": ["fullscreen", "region", "window", "game", "audio"], "example": "window" },
+          "monitorIndex": { "type": "integer", "example": 0 },
+          "region": { "allOf": [{ "$ref": "#/components/schemas/Region" }], "nullable": true },
+          "windowId": { "type": "string", "nullable": true, "example": "123456" },
+          "windowTitle": { "type": "string", "nullable": true, "example": "Notes" }
+        }
+      },
+      "LastSaved": {
+        "type": "object",
+        "nullable": true,
+        "properties": {
+          "name": { "type": "string", "example": "clip.mp4" },
+          "warning": { "type": "string", "nullable": true }
+        }
+      },
+      "SessionSnapshot": {
+        "type": "object",
+        "properties": {
+          "state": { "type": "string", "enum": ["idle", "recording", "paused"], "example": "idle" },
+          "elapsed": { "type": "string", "description": "`hh:mm:ss`", "example": "00:00:00" },
+          "lastSaved": { "$ref": "#/components/schemas/LastSaved" },
+          "requestedFps": { "type": "integer", "example": 60 },
+          "effectiveFps": { "type": "integer", "example": 30 },
+          "uniqueFps": { "type": "number", "example": 41.2 },
+          "downgraded": { "type": "boolean", "example": true },
+          "encoderName": { "type": "string", "nullable": true, "example": "AMF H.264 Encoder MFT" },
+          "requestedWidth": { "type": "integer", "example": 3840 },
+          "requestedHeight": { "type": "integer", "example": 2160 },
+          "actualWidth": { "type": "integer", "example": 1920 },
+          "actualHeight": { "type": "integer", "example": 1080 },
+          "warning": { "type": "string", "nullable": true }
+        }
+      },
+      "SessionGetData": {
+        "type": "object",
+        "properties": {
+          "session": { "$ref": "#/components/schemas/SessionSnapshot" },
+          "target": { "$ref": "#/components/schemas/TargetSummary" }
+        }
+      },
+      "TargetItem": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "example": "0" },
+          "title": { "type": "string", "example": "Display 1" },
+          "preview": { "type": "string", "nullable": true },
+          "detail": { "type": "string", "nullable": true, "example": "1920×1080" }
+        }
+      },
+      "QualitySettings": {
+        "type": "object",
+        "properties": {
+          "level": { "type": "integer", "enum": [0, 1, 2, 3], "description": "0=SD, 1=HD, 2=1440p, 3=4K." },
+          "frameRate": { "type": "integer", "example": 30 },
+          "bitrateKbps": { "type": "integer", "example": 8000 },
+          "hardwareEncoding": { "type": "boolean", "example": true }
+        }
+      },
+      "AudioSettings": {
+        "type": "object",
+        "properties": {
+          "captureSystem": { "type": "boolean" },
+          "captureMicrophone": { "type": "boolean" },
+          "microphoneDeviceId": { "type": "string", "nullable": true },
+          "audioOnly": { "type": "boolean" }
+        }
+      },
+      "Watermark": {
+        "type": "object",
+        "properties": {
+          "kind": { "type": "integer", "enum": [0, 1, 2], "description": "0=text, 1=image, 2=timestamp." },
+          "content": { "type": "string" },
+          "x": { "type": "number" },
+          "y": { "type": "number" },
+          "width": { "type": "number" },
+          "height": { "type": "number" },
+          "opacity": { "type": "number" },
+          "color": { "type": "string", "example": "#FFFFFFFF" }
+        }
+      },
+      "OverlaySettings": {
+        "type": "object",
+        "properties": {
+          "cameraEnabled": { "type": "boolean" },
+          "cameraDeviceId": { "type": "string", "nullable": true },
+          "cameraX": { "type": "number" },
+          "cameraY": { "type": "number" },
+          "cameraWidth": { "type": "number" },
+          "cameraHeight": { "type": "number" },
+          "watermarks": { "type": "array", "items": { "$ref": "#/components/schemas/Watermark" } }
+        }
+      },
+      "HotkeySettings": {
+        "type": "object",
+        "properties": {
+          "enabled": { "type": "boolean" },
+          "playCueSound": { "type": "boolean" },
+          "start": { "type": "string", "example": "Ctrl+Alt+R" },
+          "pause": { "type": "string", "example": "Ctrl+Alt+Shift+P" },
+          "stop": { "type": "string", "example": "Ctrl+Alt+S" }
+        }
+      },
+      "ScheduleRule": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "enabled": { "type": "boolean" },
+          "start": { "type": "string", "description": "TimeOnly, e.g. `09:00:00`." },
+          "end": { "type": "string", "nullable": true },
+          "durationMinutes": { "type": "integer", "nullable": true },
+          "mode": { "type": "integer", "enum": [0, 1, 2, 3], "description": "0=fullscreen, 1=region, 2=window, 3=game." }
+        }
+      },
+      "AutomationSettings": {
+        "type": "object",
+        "properties": {
+          "startAtLogon": { "type": "boolean" },
+          "segmentEnabled": { "type": "boolean" },
+          "segmentMinutes": { "type": "integer" },
+          "segmentMaxMegabytes": { "type": "integer" },
+          "schedules": { "type": "array", "items": { "$ref": "#/components/schemas/ScheduleRule" } }
+        }
+      },
+      "LanPlaybackSettings": {
+        "type": "object",
+        "properties": {
+          "enabled": { "type": "boolean" },
+          "accessKey": { "type": "string", "description": "GET returns `***` when a key is stored. PATCH with a new string to replace it." }
+        }
+      },
+      "SettingsClient": {
+        "type": "object",
+        "description": "GET /settings `data`. Enums are numbers unless noted.",
+        "properties": {
+          "saveFolder": { "type": "string" },
+          "lastMode": { "type": "integer", "enum": [0, 1, 2, 3] },
+          "monitorIndex": { "type": "integer" },
+          "quality": { "$ref": "#/components/schemas/QualitySettings" },
+          "audio": { "$ref": "#/components/schemas/AudioSettings" },
+          "overlay": { "$ref": "#/components/schemas/OverlaySettings" },
+          "hotkeys": { "$ref": "#/components/schemas/HotkeySettings" },
+          "automation": { "$ref": "#/components/schemas/AutomationSettings" },
+          "closeToTray": { "type": "boolean" },
+          "launchToTray": { "type": "boolean" },
+          "hideTrayIcon": { "type": "boolean" },
+          "showRecordingBar": { "type": "boolean" },
+          "silentMode": { "type": "boolean", "description": "When true, web start/stop does not pop the main window, bar, or saved page." },
+          "theme": { "type": "integer", "description": "GET: 1=light, 2=dark. PATCH accepts `light` or `dark` only." },
+          "uiLanguage": { "type": "string", "example": "zh-Hans" },
+          "lanPlayback": { "$ref": "#/components/schemas/LanPlaybackSettings" },
+          "resolvedLanguage": { "type": "string" },
+          "appVersion": { "type": "string", "example": "1.0.2" },
+          "publisher": { "type": "string" },
+          "repositoryUrl": { "type": "string" }
+        }
+      },
+      "SettingsPatch": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Partial update. Unknown keys return 400. Send only the fields you want to change.",
+        "properties": {
+          "theme": {
+            "description": "`light`/`dark`, or number 1/2.",
+            "oneOf": [
+              { "type": "string", "enum": ["light", "dark"] },
+              { "type": "integer", "enum": [1, 2] }
+            ]
+          },
+          "saveFolder": { "type": "string", "minLength": 1 },
+          "showRecordingBar": { "type": "boolean" },
+          "silentMode": { "type": "boolean" },
+          "closeToTray": { "type": "boolean" },
+          "launchToTray": { "type": "boolean" },
+          "hideTrayIcon": { "type": "boolean" },
+          "monitorIndex": { "type": "integer" },
+          "lastMode": { "type": "integer", "enum": [0, 1, 2, 3] },
+          "quality": { "$ref": "#/components/schemas/QualitySettings" },
+          "audio": { "$ref": "#/components/schemas/AudioSettings" },
+          "overlay": { "$ref": "#/components/schemas/OverlaySettings" },
+          "hotkeys": { "$ref": "#/components/schemas/HotkeySettings" },
+          "automation": { "$ref": "#/components/schemas/AutomationSettings" },
+          "lanPlayback": { "$ref": "#/components/schemas/LanPlaybackSettings" },
+          "uiLanguage": { "type": "string", "enum": ["system", "en", "zh-Hans", "zh-Hant", "ja", "ko"] }
+        },
+        "example": { "silentMode": true, "showRecordingBar": true }
+      },
+      "LibraryEntry": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "example": "clip.mp4" },
+          "name": { "type": "string", "example": "clip" },
+          "length": { "type": "integer", "format": "int64", "description": "File size in bytes." },
+          "duration": { "type": "string", "description": "TimeSpan, e.g. `00:00:07`." },
+          "date": { "type": "string", "format": "date-time" },
+          "isAudio": { "type": "boolean" },
+          "posterPath": { "type": "string", "nullable": true },
+          "mediaPath": { "type": "string" }
+        }
+      },
+      "LibraryRename": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "example": "meeting-notes" }
+        },
+        "example": { "name": "meeting-notes" }
+      },
+      "LibraryTrim": {
+        "type": "object",
+        "required": ["startSeconds", "endSeconds"],
+        "properties": {
+          "startSeconds": { "type": "number", "minimum": 0, "example": 1.5 },
+          "endSeconds": { "type": "number", "minimum": 0, "example": 12 }
+        },
+        "example": { "startSeconds": 1.5, "endSeconds": 12 }
+      },
+      "JobAccepted": {
+        "type": "object",
+        "required": ["jobId"],
+        "properties": {
+          "jobId": { "type": "string", "example": "a1b2c3d4e5f6" }
+        }
+      },
+      "LibraryDeleted": {
+        "type": "object",
+        "properties": {
+          "deleted": { "type": "string", "example": "clip.mp4" }
+        }
+      },
+      "Job": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "kind": { "type": "string", "enum": ["compress", "trim", "repair"] },
+          "status": { "type": "string", "enum": ["running", "done", "error"] },
+          "result": { "type": "string", "nullable": true, "description": "Output path when done." },
+          "error": { "type": "string", "nullable": true }
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Validation or command failed.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/EnvelopeError" }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Access key missing or wrong.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/EnvelopeError" },
+            "example": { "ok": false, "data": null, "error": "需要访问密钥。" }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Unknown path, file, or job.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/EnvelopeError" }
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/api/v1": {
+      "get": {
+        "operationId": "root",
+        "tags": ["Meta"],
+        "responses": {
+          "200": {
+            "description": "LAN control is on.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean", "example": true },
+                    "data": { "$ref": "#/components/schemas/ProbeData" },
+                    "error": { "type": "string", "nullable": true, "example": null }
+                  }
+                },
+                "example": { "ok": true, "data": { "name": "record", "control": true }, "error": null }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/v1/session": {
+      "get": {
+        "operationId": "sessionGet",
+        "tags": ["Session"],
+        "responses": {
+          "200": {
+            "description": "Current session and next-start target.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean", "example": true },
+                    "data": { "$ref": "#/components/schemas/SessionGetData" },
+                    "error": { "type": "string", "nullable": true, "example": null }
+                  }
+                },
+                "example": {
+                  "ok": true,
+                  "data": {
+                    "session": { "state": "idle", "elapsed": "00:00:00", "lastSaved": null, "requestedFps": 0, "effectiveFps": 0, "uniqueFps": 0, "downgraded": false, "encoderName": null, "warning": null },
+                    "target": { "mode": "fullscreen", "monitorIndex": 0, "region": null, "windowId": null, "windowTitle": null }
+                  },
+                  "error": null
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/v1/session/start": {
+      "post": {
+        "operationId": "sessionStart",
+        "tags": ["Session"],
+        "description": "No body. Call PUT /target first for region, window, or game.",
+        "responses": {
+          "200": {
+            "description": "Started. `data` is null.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/EnvelopeEmpty" },
+                "example": { "ok": true, "data": null, "error": null }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/v1/session/pause": {
+      "post": {
+        "operationId": "sessionPause",
+        "tags": ["Session"],
+        "description": "No body. Toggles pause / resume.",
+        "responses": {
+          "200": {
+            "description": "Toggled. `data` is null.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/EnvelopeEmpty" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/v1/session/stop": {
+      "post": {
+        "operationId": "sessionStop",
+        "tags": ["Session"],
+        "description": "No body. Stops and saves.",
+        "responses": {
+          "200": {
+            "description": "Stopped. `data` is null.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/EnvelopeEmpty" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/v1/targets/displays": {
+      "get": {
+        "operationId": "targetsDisplays",
+        "tags": ["Targets"],
+        "responses": {
+          "200": {
+            "description": "Monitors. Use `id` as `displayId` on PUT /target.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" },
+                    "data": { "type": "array", "items": { "$ref": "#/components/schemas/TargetItem" } },
+                    "error": { "type": "string", "nullable": true }
+                  }
+                },
+                "example": {
+                  "ok": true,
+                  "data": [{ "id": "0", "title": "Display 1", "preview": null, "detail": "1920×1080" }],
+                  "error": null
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/v1/targets/windows": {
+      "get": {
+        "operationId": "targetsWindows",
+        "tags": ["Targets"],
+        "responses": {
+          "200": {
+            "description": "Capturable windows. Use `id` as `windowId` with mode `window`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" },
+                    "data": { "type": "array", "items": { "$ref": "#/components/schemas/TargetItem" } },
+                    "error": { "type": "string", "nullable": true }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/v1/targets/games": {
+      "get": {
+        "operationId": "targetsGames",
+        "tags": ["Targets"],
+        "responses": {
+          "200": {
+            "description": "Game windows. Use `id` as `windowId` with mode `game`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" },
+                    "data": { "type": "array", "items": { "$ref": "#/components/schemas/TargetItem" } },
+                    "error": { "type": "string", "nullable": true }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/v1/targets/cameras": {
+      "get": {
+        "operationId": "targetsCameras",
+        "tags": ["Targets"],
+        "responses": {
+          "200": {
+            "description": "Camera devices. Use `id` in settings `overlay.cameraDeviceId`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" },
+                    "data": { "type": "array", "items": { "$ref": "#/components/schemas/TargetItem" } },
+                    "error": { "type": "string", "nullable": true }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/v1/targets/microphones": {
+      "get": {
+        "operationId": "targetsMicrophones",
+        "tags": ["Targets"],
+        "responses": {
+          "200": {
+            "description": "Microphones. Use `id` in settings `audio.microphoneDeviceId`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" },
+                    "data": { "type": "array", "items": { "$ref": "#/components/schemas/TargetItem" } },
+                    "error": { "type": "string", "nullable": true }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/v1/target": {
+      "put": {
+        "operationId": "targetPut",
+        "tags": ["Targets"],
+        "description": "Sets the next start target. Then POST /session/start.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/TargetPut" },
+              "examples": {
+                "fullscreen": { "value": { "mode": "fullscreen" } },
+                "audio": { "value": { "mode": "audio" } },
+                "window": { "value": { "mode": "window", "windowId": "123456" } },
+                "game": { "value": { "mode": "game", "windowId": "123456" } },
+                "region": {
+                  "value": {
+                    "mode": "region",
+                    "displayId": "0",
+                    "region": { "x": 0, "y": 0, "width": 800, "height": 600 }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Confirmed target.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean", "example": true },
+                    "data": { "$ref": "#/components/schemas/TargetSummary" },
+                    "error": { "type": "string", "nullable": true, "example": null }
+                  }
+                },
+                "example": {
+                  "ok": true,
+                  "data": { "mode": "window", "monitorIndex": 0, "region": null, "windowId": "123456", "windowTitle": null },
+                  "error": null
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/v1/settings": {
+      "get": {
+        "operationId": "settingsGet",
+        "tags": ["Settings"],
+        "responses": {
+          "200": {
+            "description": "Current settings. `lanPlayback.accessKey` is masked as `***` when set.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" },
+                    "data": { "$ref": "#/components/schemas/SettingsClient" },
+                    "error": { "type": "string", "nullable": true }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      },
+      "patch": {
+        "operationId": "settingsPatch",
+        "tags": ["Settings"],
+        "description": "Partial update. Unknown keys fail. `theme` must be `light` or `dark`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "Partial update. Unknown keys return 400. Send only the fields you want to change.",
+                "properties": {
+                  "theme": {
+                    "description": "`light`/`dark`, or number 1/2.",
+                    "oneOf": [
+                      { "type": "string", "enum": ["light", "dark"] },
+                      { "type": "integer", "enum": [1, 2] }
+                    ]
+                  },
+                  "saveFolder": { "type": "string", "minLength": 1 },
+                  "showRecordingBar": { "type": "boolean" },
+                  "silentMode": { "type": "boolean" },
+                  "closeToTray": { "type": "boolean" },
+                  "launchToTray": { "type": "boolean" },
+                  "hideTrayIcon": { "type": "boolean" },
+                  "monitorIndex": { "type": "integer" },
+                  "lastMode": { "type": "integer", "enum": [0, 1, 2, 3] },
+                  "quality": { "$ref": "#/components/schemas/QualitySettings" },
+                  "audio": { "$ref": "#/components/schemas/AudioSettings" },
+                  "overlay": { "$ref": "#/components/schemas/OverlaySettings" },
+                  "hotkeys": { "$ref": "#/components/schemas/HotkeySettings" },
+                  "automation": { "$ref": "#/components/schemas/AutomationSettings" },
+                  "lanPlayback": { "$ref": "#/components/schemas/LanPlaybackSettings" },
+                  "uiLanguage": { "type": "string", "enum": ["system", "en", "zh-Hans", "zh-Hant", "ja", "ko"] }
+                },
+                "example": { "silentMode": true }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated settings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" },
+                    "data": { "$ref": "#/components/schemas/SettingsClient" },
+                    "error": { "type": "string", "nullable": true }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/v1/settings/reset": {
+      "post": {
+        "operationId": "settingsReset",
+        "tags": ["Settings"],
+        "description": "No body. Factory reset. Only when the user explicitly asked.",
+        "responses": {
+          "200": {
+            "description": "Reset settings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" },
+                    "data": { "$ref": "#/components/schemas/SettingsClient" },
+                    "error": { "type": "string", "nullable": true }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/v1/library": {
+      "get": {
+        "operationId": "libraryList",
+        "tags": ["Library"],
+        "responses": {
+          "200": {
+            "description": "Finished recordings.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" },
+                    "data": { "type": "array", "items": { "$ref": "#/components/schemas/LibraryEntry" } },
+                    "error": { "type": "string", "nullable": true }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/v1/library/{id}": {
+      "patch": {
+        "operationId": "libraryRename",
+        "tags": ["Library"],
+        "parameters": [
+          { "$ref": "#/components/parameters/LibraryId" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LibraryRename" },
+              "example": { "name": "meeting-notes" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Renamed entry.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" },
+                    "data": { "$ref": "#/components/schemas/LibraryEntry" },
+                    "error": { "type": "string", "nullable": true }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "delete": {
+        "operationId": "libraryDelete",
+        "tags": ["Library"],
+        "parameters": [
+          { "$ref": "#/components/parameters/LibraryId" },
+          { "$ref": "#/components/parameters/ConfirmDelete" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deleted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" },
+                    "data": { "$ref": "#/components/schemas/LibraryDeleted" },
+                    "error": { "type": "string", "nullable": true }
+                  }
+                },
+                "example": { "ok": true, "data": { "deleted": "clip.mp4" }, "error": null }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/v1/library/{id}/compress": {
+      "post": {
+        "operationId": "libraryCompress",
+        "tags": ["Library"],
+        "description": "No body. Returns a job id; poll GET /jobs/{jobId}.",
+        "parameters": [
+          { "$ref": "#/components/parameters/LibraryId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Job accepted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" },
+                    "data": { "$ref": "#/components/schemas/JobAccepted" },
+                    "error": { "type": "string", "nullable": true }
+                  }
+                },
+                "example": { "ok": true, "data": { "jobId": "a1b2c3d4e5f6" }, "error": null }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/v1/library/{id}/trim": {
+      "post": {
+        "operationId": "libraryTrim",
+        "tags": ["Library"],
+        "parameters": [
+          { "$ref": "#/components/parameters/LibraryId" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LibraryTrim" },
+              "example": { "startSeconds": 1.5, "endSeconds": 12 }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Job accepted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" },
+                    "data": { "$ref": "#/components/schemas/JobAccepted" },
+                    "error": { "type": "string", "nullable": true }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/v1/library/{id}/repair": {
+      "post": {
+        "operationId": "libraryRepair",
+        "tags": ["Library"],
+        "description": "No body. Returns a job id; poll GET /jobs/{jobId}.",
+        "parameters": [
+          { "$ref": "#/components/parameters/LibraryId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Job accepted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" },
+                    "data": { "$ref": "#/components/schemas/JobAccepted" },
+                    "error": { "type": "string", "nullable": true }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/v1/jobs/{jobId}": {
+      "get": {
+        "operationId": "jobGet",
+        "tags": ["Jobs"],
+        "parameters": [
+          { "$ref": "#/components/parameters/JobId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Job status.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" },
+                    "data": { "$ref": "#/components/schemas/Job" },
+                    "error": { "type": "string", "nullable": true }
+                  }
+                },
+                "example": {
+                  "ok": true,
+                  "data": { "id": "a1b2c3d4e5f6", "kind": "trim", "status": "done", "result": "C:\\\\Videos\\\\clip-trim.mp4", "error": null },
+                  "error": null
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    }
+  }
+}
