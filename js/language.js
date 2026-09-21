@@ -1,4 +1,11 @@
 (() => {
+  const siteRoot = new URL("../", document.currentScript.src);
+  const rootPath = siteRoot.pathname;
+  const isRootHomepage = window.location.pathname === rootPath || window.location.pathname === `${rootPath}index.html`;
+
+  // Never redirect from a localized page or a nested documentation route.
+  if (!isRootHomepage) return;
+
   let savedLanguage = null;
   try {
     savedLanguage = window.localStorage.getItem("luma-language");
@@ -12,7 +19,7 @@
 
   if (!prefersChinese) return;
 
-  const target = new URL("./cn/", window.location.href);
+  const target = new URL("cn/", siteRoot);
   target.search = window.location.search;
   target.hash = window.location.hash;
   window.location.replace(target.href);
