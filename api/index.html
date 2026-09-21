@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Interactive reference for the Luma local control API.">
+  <title>Luma OpenAPI</title>
+  <style>
+    :root { color-scheme: light; font-family: Inter, Manrope, "Segoe UI", sans-serif; }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; background: #fff; }
+    body { display: grid; grid-template-rows: 58px minmax(0, 1fr); }
+    .docs-nav { display: flex; align-items: center; gap: 22px; padding: 0 24px; border-bottom: 1px solid #e6ebf3; background: rgba(255,255,255,.96); color: #475569; }
+    .brand { margin-right: auto; color: #0f172a; font-size: 17px; font-weight: 750; letter-spacing: -.02em; text-decoration: none; }
+    .docs-nav a:not(.brand) { color: inherit; font-size: 14px; font-weight: 650; text-decoration: none; }
+    .docs-nav a:hover { color: #0866d9; }
+    rapi-doc { width: 100%; height: 100%; }
+    @media (max-width: 640px) {
+      .docs-nav { gap: 14px; padding: 0 14px; }
+      .docs-nav a:not(.brand) { font-size: 13px; }
+      .raw-link { display: none; }
+    }
+  </style>
+  <script src="./rapidoc-min.js"></script>
+</head>
+<body>
+  <nav class="docs-nav" aria-label="Documentation">
+    <a class="brand" href="../">Luma OpenAPI</a>
+    <a href="../skill/">AI Skill</a>
+    <a class="raw-link" href="../openapi/openapi.json">Raw JSON</a>
+    <a href="../">Home</a>
+  </nav>
+  <rapi-doc
+    spec-url="../openapi/openapi.json"
+    theme="light"
+    primary-color="#0866d9"
+    bg-color="#ffffff"
+    text-color="#172033"
+    header-color="#ffffff"
+    show-header="false"
+    show-info="true"
+    allow-try="false"
+    allow-server-selection="false"
+    render-style="view"
+    schema-style="table"
+    regular-font="Inter, Manrope, Segoe UI, sans-serif"
+  ></rapi-doc>
+</body>
+</html>

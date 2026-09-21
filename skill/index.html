@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Luma Control Skill documentation for AI clients.">
+  <title>Luma Control Skill</title>
+  <style>
+    :root { color-scheme: light; font-family: Inter, Manrope, "Segoe UI", sans-serif; color: #172033; background: #f5f8fc; }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    a { color: #0866d9; }
+    .nav { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 22px; height: 58px; padding: 0 max(24px, calc((100vw - 1120px) / 2)); border-bottom: 1px solid #e2e8f0; background: rgba(255,255,255,.94); backdrop-filter: blur(12px); }
+    .nav a { color: #475569; font-size: 14px; font-weight: 650; text-decoration: none; }
+    .nav .brand { margin-right: auto; color: #0f172a; font-size: 17px; font-weight: 750; }
+    main { width: min(1120px, calc(100% - 40px)); margin: 0 auto; padding: 72px 0 96px; }
+    .eyebrow { color: #0866d9; font-size: 13px; font-weight: 750; letter-spacing: .08em; text-transform: uppercase; }
+    h1 { max-width: 760px; margin: 14px 0 18px; font-size: clamp(42px, 7vw, 72px); line-height: .98; letter-spacing: -.055em; }
+    .lead { max-width: 720px; margin: 0; color: #526076; font-size: 18px; line-height: 1.75; }
+    .actions { display: flex; flex-wrap: wrap; gap: 12px 20px; margin: 28px 0 54px; }
+    .actions a { font-weight: 700; text-decoration: none; }
+    .docs { display: grid; gap: 24px; }
+    article { overflow: hidden; border: 1px solid #dfe6ef; border-radius: 20px; background: #fff; box-shadow: 0 18px 50px rgba(31, 49, 77, .06); }
+    article header { display: flex; align-items: baseline; justify-content: space-between; gap: 20px; padding: 20px 24px; border-bottom: 1px solid #e8edf4; }
+    h2 { margin: 0; font-size: 20px; letter-spacing: -.02em; }
+    article header a { font-size: 13px; font-weight: 700; text-decoration: none; }
+    pre { min-height: 180px; margin: 0; padding: 26px; overflow: auto; color: #25324a; background: #fbfcfe; font: 13px/1.75 "Cascadia Code", "SFMono-Regular", Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .error { color: #a61b1b; }
+    @media (max-width: 640px) {
+      .nav { gap: 14px; padding: 0 16px; }
+      .nav a { font-size: 13px; }
+      main { width: min(100% - 28px, 1120px); padding-top: 48px; }
+      article header { padding: 17px 18px; }
+      pre { padding: 20px 18px; font-size: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="nav" aria-label="Documentation">
+    <a class="brand" href="../">Luma Skill</a>
+    <a href="../api/">OpenAPI</a>
+    <a href="../">Home</a>
+  </nav>
+  <main>
+    <p class="eyebrow">AI control, local by design</p>
+    <h1>Luma Control Skill</h1>
+    <p class="lead">A ready-to-use Skill for controlling a running Luma instance through its local API—inspect state, choose a capture target, start or stop recording, and manage completed files.</p>
+    <div class="actions"><a href="./SKILL.md">Download SKILL.md →</a><a href="./reference.md">Download reference.md →</a><a href="../openapi/openapi.json">View raw OpenAPI →</a></div>
+    <div class="docs">
+      <article><header><h2>SKILL.md</h2><a href="./SKILL.md">Raw file</a></header><pre id="skill">Loading…</pre></article>
+      <article><header><h2>reference.md</h2><a href="./reference.md">Raw file</a></header><pre id="reference">Loading…</pre></article>
+    </div>
+  </main>
+  <script>
+    async function loadDocument(path, target) {
+      try {
+        const response = await fetch(path);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        document.getElementById(target).textContent = await response.text();
+      } catch (error) {
+        const node = document.getElementById(target);
+        node.classList.add('error');
+        node.textContent = `Unable to load ${path}. Open the raw file link instead.`;
+      }
+    }
+    loadDocument('./SKILL.md', 'skill');
+    loadDocument('./reference.md', 'reference');
+  </script>
+</body>
+</html>
