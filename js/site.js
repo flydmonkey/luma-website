@@ -1,6 +1,16 @@
 (() => {
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+  document.querySelectorAll("[data-language]").forEach((link) => {
+    link.addEventListener("click", () => {
+      try {
+        window.localStorage.setItem("luma-language", link.dataset.language);
+      } catch {
+        // Language selection still works for this navigation when storage is unavailable.
+      }
+    });
+  });
+
   document.querySelectorAll("[data-demo-root]").forEach((root) => {
     const image = root.querySelector("[data-demo-image]");
     const tabs = [...root.querySelectorAll("[data-src]")];
