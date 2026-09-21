@@ -10,9 +10,9 @@
   const preferredLanguage = savedLanguage || browserLanguage;
   const prefersChinese = preferredLanguage === "zh-Hans" || /^zh(?:-|$)/i.test(preferredLanguage);
 
-  if (prefersChinese) return;
+  if (!prefersChinese) return;
 
-  const target = new URL("./en/", window.location.href);
+  const target = new URL("./cn/", window.location.href);
   target.search = window.location.search;
   target.hash = window.location.hash;
   window.location.replace(target.href);
